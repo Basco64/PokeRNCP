@@ -1,0 +1,47 @@
+Fait
+
+- user peut créer un compte
+- user peut supprimer un compte
+- user peut voir ses informations
+- user peut se connecter
+- user peut se déconnecter
+- user peut mettre à jour ses informations
+- user peut voir sa liste de Pokémon
+- user peut ajouter un Pokémon
+- user peut renommer un Pokémon (surnom)
+- user peut relâcher un Pokémon
+- user peut voir les détails d’un Pokémon
+
+A faire
+
+Qualité et tests
+
+- Couvrir les routes avec des tests unitaires et d’intégration (cas OK/erreurs/401)
+- Tests DB (migrations à jour, seed minimal)
+- Mesurer la couverture (ex: cargo-tarpaulin) et définir un seuil
+
+Sécurité
+
+- Déconnexion et rafraîchissement de token (JWT)
+- Protection anti-brute-force sur /login (rate limiting)
+- Validation stricte des entrées (types, longueurs, emails)
+- Politiques de mot de passe et rotation des secrets
+
+API et données
+
+- Pagination/tri/filtre sur la liste des Pokémon, recherche
+- Contraintes et index DB (unicité username/email), clés étrangères
+- DTOs/documentation OpenAPI (Swagger)
+
+Ops/DevEx
+
+- CI: fmt, clippy, build, tests
+- Docker Compose (app + DB), variables d’environnement prod
+- Logs structurés et tracing
+- sqlx migrate + sqlx prepare (offline) pour la CI
+- Scripts Makefile/Taskfile pour les commandes dev
+
+Documentation
+
+- README: démarrage rapide (dev/test/prod), variables d’environnement, scripts
+- Guide d’API (endpoints, schémas, exemples)

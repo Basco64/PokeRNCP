@@ -18,15 +18,23 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 time = { version = "0.3", features = ["formatting", "parsing", "serde", "serde-well-known"] }
 
 # hash mdp 
-argon2 = "0.5.3" #https://crates.io/crates/argon2
+argon2 = "0.5.3" # https://crates.io/crates/argon2
 
-# .env
 dotenvy = "0.15.7"
-
-# JWT pour authentification
 jsonwebtoken = { version = "10", default-features = false, features = ["rust_crypto"] }
 
+# CORS
+tower-http = { version = "0.6", features = ["cors"] }
+
+tower = { version = "0.4", features = ["make", "util"] }  
 
 [dev-dependencies]
-tower = { version = "0.5", features = ["util"] }
-http-body-util = "0.1"
+tokio = { version = "1.40", features = ["full"] }
+# Utilitaires Tower
+tower = { version = "0.4", features = ["util"] }
+# Outils body pour tests
+http-body-util = "0.1.3"
+# Singleton
+once_cell = "1.21.3" # https://crates.io/crates/once_cell
+
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }

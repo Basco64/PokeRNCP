@@ -1,3 +1,4 @@
+-- Add up migration script here
 -- Requis pour gen_random_uuid()
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -24,10 +25,10 @@ CREATE TABLE IF NOT EXISTS pokemon (
 -- ===== TABLE ASSOCIATIVE USER_POKEMON =====
 CREATE TABLE IF NOT EXISTS user_pokemon (
     id SERIAL PRIMARY KEY,
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    pokemon_id INTEGER REFERENCES pokemon(id),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    pokemon_id INTEGER NOT NULL REFERENCES pokemon(id),
     nickname VARCHAR(50),
-    level INTEGER DEFAULT 1,
+    level INTEGER NOT NULL DEFAULT 1,
     captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(user_id, pokemon_id, nickname)
 );

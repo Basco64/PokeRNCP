@@ -30,3 +30,8 @@ pub fn not_found(msg: impl Into<String>) -> (StatusCode, String) {
 pub fn unauthorized(msg: impl Into<String>) -> (StatusCode, String) {
     (StatusCode::UNAUTHORIZED, msg.into())
 }
+
+pub async fn shutdown() {
+    tokio::signal::ctrl_c().await.unwrap();
+    println!("🛑 Arrét en cours...");
+}

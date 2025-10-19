@@ -1,3 +1,4 @@
+-- Add down migration script here
 -- pour rollback
 DROP INDEX IF EXISTS idx_user_pokemon_pokemon_id;
 DROP INDEX IF EXISTS idx_user_pokemon_user_id;

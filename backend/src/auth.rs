@@ -7,11 +7,12 @@ use argon2::{
 };
 
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use axum::extract::FromRequestParts;
 use axum::http::{HeaderMap, StatusCode, header, request::Parts};
+
+use crate::models::auth::{Claims, ResetClaims};
 
 pub fn hash_password(password: &str) -> Result<String, PHCError> {
     let salt = SaltString::generate(&mut OsRng);
@@ -29,13 +30,6 @@ pub fn verify_password(hash: &str, password: &str) -> bool {
             .is_ok(),
         Err(_) => false,
     }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Claims {
-    pub sub: Uuid,
-    pub iat: i64,
-    pub exp: i64,
 }
 
 fn access_secret() -> String {
@@ -105,6 +99,49 @@ pub fn verify_refresh(token: &str) -> Result<Claims, jsonwebtoken::errors::Error
         &DecodingKey::from_secret(refresh_secret().as_bytes()),
         &validation,
     )?;
+    Ok(data.claims)
+}
+
+fn reset_secret() -> String {
+    std::env::var("RESET_SECRET")
+        .ok()
+        .unwrap_or_else(access_secret)
+}
+
+fn reset_ttl_secs() -> i64 {
+    std::env::var("RESET_TOKEN_EXP_SECONDS")
+        .ok()
+        .and_then(|s| s.parse::<i64>().ok())
+        .unwrap_or(3600) // 1h
+}
+
+pub fn generate_reset_token(user_id: Uuid) -> Result<String, jsonwebtoken::errors::Error> {
+    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+    let claims = ResetClaims {
+        sub: user_id,
+        iat: now,
+        exp: now + reset_ttl_secs(),
+        scope: "pwd_reset".to_string(),
+    };
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(reset_secret().as_bytes()),
+    )
+}
+
+pub fn verify_reset(token: &str) -> Result<ResetClaims, jsonwebtoken::errors::Error> {
+    let validation = Validation::default();
+    let data = decode::<ResetClaims>(
+        token,
+        &DecodingKey::from_secret(reset_secret().as_bytes()),
+        &validation,
+    )?;
+    if data.claims.scope != "pwd_reset" {
+        return Err(jsonwebtoken::errors::Error::from(
+            jsonwebtoken::errors::ErrorKind::InvalidToken,
+        ));
+    }
     Ok(data.claims)
 }
 

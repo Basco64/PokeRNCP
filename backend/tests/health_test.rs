@@ -6,7 +6,7 @@ mod common;
 async fn get_root_retourne_bienvenue() {
     let (base, handle) = common::start_server().await;
 
-    let res = reqwest::get(format!("{base}/")).await.unwrap();
+    let res = reqwest::get(format!("{base}/api")).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
     let body = res.text().await.unwrap();
     assert_eq!(body, "Bienvenue sur le pokeRncp");

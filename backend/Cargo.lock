@@ -1420,6 +1420,7 @@ dependencies = [
  "axum",
  "dotenvy",
  "http-body-util",
+ "hyper",
  "jsonwebtoken",
  "once_cell",
  "reqwest",

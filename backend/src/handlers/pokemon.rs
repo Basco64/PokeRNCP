@@ -117,7 +117,7 @@ pub async fn update_pokemon(
     if current_user != user_id {
         return Err(crate::helpers::unauthorized("ACCESS DENIED"));
     }
-    // COALESCE garde l’ancienne valeur si None (et évite NULL sur un champ NOT NULL)
+    // COALESCE garde l’ancienne valeur si None
     let res = sqlx::query!(
         r#"
         UPDATE user_pokemon

@@ -116,7 +116,7 @@ pub async fn get_pokemon_by_id(
             p.image_url          AS image_url,
             p.height_m           AS height_m,
             p.weight_kg          AS weight_kg,
-            p.weaknesses         AS weaknesses,
+            p.description        AS description,
             p.base_hp            AS base_hp,
             p.base_attack        AS base_attack,
             p.base_defense       AS base_defense,

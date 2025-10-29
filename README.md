@@ -172,4 +172,4 @@ Note: La lecture du profil se fait via GET /api/auth/me (GET /api/users/{id} ret
 
 - Les endpoints protégés utilisent CurrentUser qui lit en priorité le cookie httpOnly "auth" (ou Authorization: Bearer access).
 - CORS est configuré via FRONTEND_ORIGIN.
-- Seed JSON: `backend/data/gen1.json`. Pour Gen2/Gen3: utiliser `seed_from_json(&pool, "data/genX.json")`.
+- Seed JSON: `backend/data/pokedex.json`. Pour ajouter d'autres seed: utiliser `seed_from_json(&pool, "data/genX.json")`.

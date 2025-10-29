@@ -32,7 +32,7 @@ pub struct PokemonDetail {
     pub image_url: Option<String>,
     pub height_m: Option<f64>,
     pub weight_kg: Option<f64>,
-    pub weaknesses: Option<Vec<String>>,
+    pub description: Option<String>,
     pub base_hp: Option<i32>,
     pub base_attack: Option<i32>,
     pub base_defense: Option<i32>,

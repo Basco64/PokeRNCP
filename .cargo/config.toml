@@ -1,0 +1,4 @@
+[alias]
+t = "nextest run"
+tester = "nextest run"
+"test-q" = "test -q"

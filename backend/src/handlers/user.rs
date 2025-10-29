@@ -34,10 +34,10 @@ pub async fn create_user(
     match res {
         Ok(_) => {}
         Err(e) => {
-            if let sqlx::Error::Database(db) = &e {
-                if db.code().as_deref() == Some("23505") {
-                    return Err(conflict("⚠️ User already exists."));
-                }
+            if let sqlx::Error::Database(db) = &e
+                && db.code().as_deref() == Some("23505")
+            {
+                return Err(conflict("⚠️ User already exists."));
             }
             return Err(to_500(e));
         }

@@ -6,6 +6,8 @@ pub struct PokemonWithCaught {
     pub name: String,
     pub type1: String,
     pub type2: Option<String>,
+    pub dex_no: Option<i32>,
+    pub image_url: Option<String>,
     pub caught: bool,
 }
 
@@ -26,6 +28,11 @@ pub struct PokemonDetail {
     pub name: String,
     pub type1: String,
     pub type2: Option<String>,
+    pub dex_no: Option<i32>,
+    pub image_url: Option<String>,
+    pub height_m: Option<f64>,
+    pub weight_kg: Option<f64>,
+    pub weaknesses: Option<Vec<String>>,
     pub base_hp: Option<i32>,
     pub base_attack: Option<i32>,
     pub base_defense: Option<i32>,

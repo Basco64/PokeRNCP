@@ -88,6 +88,45 @@ async fn seed_from_json(pool: &PgPool, json_path: &str) -> Result<(), Box<dyn st
         if type1.is_empty() {
             return Err(format!("type1 manquant pour {name}").into());
         }
+        // new optional fields
+        let dex_no: Option<i32> = item
+            .get("dex_no")
+            .and_then(|v| v.as_i64())
+            .map(|x| x as i32)
+            .or_else(|| {
+                item.get("num")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.trim().parse::<i32>().ok())
+            });
+        let image_url: Option<String> = item
+            .get("image_url")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .or_else(|| {
+                item.get("img")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            });
+        let height_m: Option<f64> = item.get("height_m").and_then(|v| v.as_f64()).or_else(|| {
+            item.get("height")
+                .and_then(|v| v.as_str())
+                .and_then(|s| s.split_whitespace().next())
+                .and_then(|n| n.replace(',', ".").parse::<f64>().ok())
+        });
+        let weight_kg: Option<f64> = item.get("weight_kg").and_then(|v| v.as_f64()).or_else(|| {
+            item.get("weight")
+                .and_then(|v| v.as_str())
+                .and_then(|s| s.split_whitespace().next())
+                .and_then(|n| n.replace(',', ".").parse::<f64>().ok())
+        });
+        let weaknesses: Option<Vec<String>> = item
+            .get("weaknesses")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|x| x.as_str().map(|s| s.to_string()))
+                    .collect()
+            });
         // stats
         let (hp, atk, def, spa, spd, spe) = {
             if let Some(stats) = item.get("stats").or_else(|| item.get("baseStats")) {
@@ -116,8 +155,12 @@ async fn seed_from_json(pool: &PgPool, json_path: &str) -> Result<(), Box<dyn st
 
         sqlx::query(
             r#"
-            INSERT INTO pokemon (name, type1, type2, base_hp, base_attack, base_defense, base_sp_attack, base_sp_defense, base_speed)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+            INSERT INTO pokemon (
+                name, type1, type2,
+                base_hp, base_attack, base_defense, base_sp_attack, base_sp_defense, base_speed,
+                dex_no, image_url, height_m, weight_kg, weaknesses
+            )
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
             ON CONFLICT (name) DO UPDATE SET
               type1 = EXCLUDED.type1,
               type2 = EXCLUDED.type2,
@@ -126,7 +169,12 @@ async fn seed_from_json(pool: &PgPool, json_path: &str) -> Result<(), Box<dyn st
               base_defense = EXCLUDED.base_defense,
               base_sp_attack = EXCLUDED.base_sp_attack,
               base_sp_defense = EXCLUDED.base_sp_defense,
-              base_speed = EXCLUDED.base_speed
+              base_speed = EXCLUDED.base_speed,
+              dex_no = EXCLUDED.dex_no,
+              image_url = EXCLUDED.image_url,
+              height_m = EXCLUDED.height_m,
+              weight_kg = EXCLUDED.weight_kg,
+              weaknesses = EXCLUDED.weaknesses
             "#,
         )
         .bind(name)
@@ -138,6 +186,11 @@ async fn seed_from_json(pool: &PgPool, json_path: &str) -> Result<(), Box<dyn st
         .bind(spa)
         .bind(spd)
         .bind(spe)
+        .bind(dex_no)
+        .bind(image_url)
+        .bind(height_m)
+        .bind(weight_kg)
+        .bind(weaknesses)
         .execute(pool)
         .await?;
     }

@@ -20,6 +20,8 @@ pub async fn list_all(
             p.name        AS name,
             p.type1       AS type1,
             p.type2       AS type2,
+            p.dex_no      AS dex_no,
+            p.image_url   AS image_url,
             EXISTS (
                 SELECT 1 FROM user_pokemon up
                 WHERE up.user_id = $1 AND up.pokemon_id = p.id
@@ -78,6 +80,8 @@ pub async fn search_pokemons(
             p.name        AS name,
             p.type1       AS type1,
             p.type2       AS type2,
+            p.dex_no      AS dex_no,
+            p.image_url   AS image_url,
             EXISTS (
                 SELECT 1 FROM user_pokemon up
                 WHERE up.user_id = $1 AND up.pokemon_id = p.id
@@ -108,6 +112,11 @@ pub async fn get_pokemon_by_id(
             p.name               AS name,
             p.type1              AS type1,
             p.type2              AS type2,
+            p.dex_no             AS dex_no,
+            p.image_url          AS image_url,
+            p.height_m           AS height_m,
+            p.weight_kg          AS weight_kg,
+            p.weaknesses         AS weaknesses,
             p.base_hp            AS base_hp,
             p.base_attack        AS base_attack,
             p.base_defense       AS base_defense,

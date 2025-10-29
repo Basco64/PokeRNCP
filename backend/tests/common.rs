@@ -65,10 +65,10 @@ pub async fn start_server() -> (String, tokio::task::JoinHandle<()>) {
     });
 
     for _ in 0..30 {
-        if let Ok(resp) = reqwest::get(format!("{url}/api")).await {
-            if resp.status().is_success() {
-                break;
-            }
+        if let Ok(resp) = reqwest::get(format!("{url}/api")).await
+            && resp.status().is_success()
+        {
+            break;
         }
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
@@ -115,13 +115,13 @@ pub async fn create_test_user(base: &str) -> (Uuid, String, String, String) {
 }
 #[allow(dead_code)]
 pub async fn delete_user(username: &str) {
-    if let Ok(url) = std::env::var("TEST_DATABASE_URL") {
-        if let Ok(mut conn) = sqlx::PgConnection::connect(&url).await {
-            let _ = sqlx::query("DELETE FROM users WHERE username = $1")
-                .bind(username)
-                .execute(&mut conn)
-                .await;
-        }
+    if let Ok(url) = std::env::var("TEST_DATABASE_URL")
+        && let Ok(mut conn) = sqlx::PgConnection::connect(&url).await
+    {
+        let _ = sqlx::query("DELETE FROM users WHERE username = $1")
+            .bind(username)
+            .execute(&mut conn)
+            .await;
     }
 }
 #[allow(dead_code)]

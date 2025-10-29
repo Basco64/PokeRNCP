@@ -78,6 +78,15 @@ async fn list_search_catch_get() {
     assert_eq!(detail["id"].as_i64().unwrap() as i32, pid1);
     assert_eq!(detail["name"], "Pikachu");
     assert_eq!(detail["caught"], true);
+    // new fields from seed
+    assert_eq!(detail["dex_no"].as_i64().unwrap() as i32, 25);
+    assert!(detail["image_url"].as_str().unwrap().contains("025.png"));
+    let h = detail["height_m"].as_f64().unwrap();
+    assert!((h - 0.41).abs() < 1e-6);
+    let w = detail["weight_kg"].as_f64().unwrap();
+    assert!((w - 6.0).abs() < 1e-6);
+    let weaks = detail["weaknesses"].as_array().unwrap();
+    assert_eq!(weaks, &vec![serde_json::Value::String("Ground".into())]);
 
     let res = client
         .get(format!("{}/api/pokemons/search?q=Pidgey", base))

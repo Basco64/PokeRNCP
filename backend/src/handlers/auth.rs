@@ -33,10 +33,10 @@ pub async fn login_user(
     State(pool): State<PgPool>,
     Json(payload): Json<LoginUser>,
 ) -> impl IntoResponse {
-    let row = match sqlx::query!(
+    let row = match sqlx::query_as::<_, (uuid::Uuid, String)>(
         r#"SELECT id, password FROM users WHERE username = $1 OR email = $1"#,
-        payload.username
     )
+    .bind(&payload.username)
     .fetch_optional(&pool)
     .await
     {
@@ -44,20 +44,20 @@ pub async fn login_user(
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     };
 
-    let Some(row) = row else {
+    let Some((user_id, password_hash)) = row else {
         return crate::helpers::unauthorized("Identifiants invalides").into_response();
     };
 
-    if !verify_password(&row.password, &payload.password) {
+    if !verify_password(&password_hash, &payload.password) {
         return crate::helpers::unauthorized("Identifiants invalides").into_response();
     }
 
     // Génère les tokens
-    let access = match crate::auth::generate_access_token(row.id) {
+    let access = match crate::auth::generate_access_token(user_id) {
         Ok(t) => t,
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     };
-    let refresh = match crate::auth::generate_refresh_token(row.id) {
+    let refresh = match crate::auth::generate_refresh_token(user_id) {
         Ok(t) => t,
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     };
@@ -157,19 +157,19 @@ pub async fn me(
     State(pool): State<PgPool>,
     CurrentUser(user_id): CurrentUser,
 ) -> impl IntoResponse {
-    match sqlx::query!(
+    let row = sqlx::query_as::<_, (uuid::Uuid, String, Option<String>)>(
         r#"SELECT id, username, email FROM users WHERE id = $1"#,
-        user_id
     )
+    .bind(user_id)
     .fetch_optional(&pool)
-    .await
-    {
-        Ok(Some(u)) => (
+    .await;
+    match row {
+        Ok(Some((id, username, email))) => (
             StatusCode::OK,
             Json(json!({
-                "id": u.id,
-                "username": u.username,
-                "email": u.email
+                "id": id,
+                "username": username,
+                "email": email
             })),
         )
             .into_response(),
@@ -183,7 +183,8 @@ pub async fn change_password(
     CurrentUser(user_id): CurrentUser,
     Json(payload): Json<ChangePasswordPayload>,
 ) -> impl IntoResponse {
-    let row = match sqlx::query!(r#"SELECT password FROM users WHERE id = $1"#, user_id)
+    let row = match sqlx::query_scalar::<_, String>(r#"SELECT password FROM users WHERE id = $1"#)
+        .bind(user_id)
         .fetch_optional(&pool)
         .await
     {
@@ -191,11 +192,11 @@ pub async fn change_password(
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     };
 
-    let Some(row) = row else {
+    let Some(current_hash) = row else {
         return (StatusCode::NOT_FOUND, "Utilisateur introuvable").into_response();
     };
 
-    if !verify_password(&row.password, &payload.current_password) {
+    if !verify_password(&current_hash, &payload.current_password) {
         return crate::helpers::unauthorized("Mot de passe actuel incorrect").into_response();
     }
 
@@ -204,13 +205,11 @@ pub async fn change_password(
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     };
 
-    if let Err(e) = sqlx::query!(
-        r#"UPDATE users SET password = $1 WHERE id = $2"#,
-        new_hash,
-        user_id
-    )
-    .execute(&pool)
-    .await
+    if let Err(e) = sqlx::query(r#"UPDATE users SET password = $1 WHERE id = $2"#)
+        .bind(new_hash)
+        .bind(user_id)
+        .execute(&pool)
+        .await
     {
         return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
     }
@@ -226,23 +225,22 @@ pub async fn request_password_reset(
         .ok()
         .is_some_and(|v| v == "true");
 
-    let user = (sqlx::query!(
+    let user = (sqlx::query_scalar::<_, uuid::Uuid>(
         r#"SELECT id FROM users WHERE email = $1 OR username = $1"#,
-        payload.email_or_username
     )
+    .bind(&payload.email_or_username)
     .fetch_optional(&pool)
     .await)
         .unwrap_or_default();
 
-    if let Some(u) = user {
-        if let Ok(token) = crate::auth::generate_reset_token(u.id) {
-            // En prod: envoi par mail plutot.
-            if !prod {
-                return (StatusCode::ACCEPTED, Json(json!({ "reset_token": token })))
-                    .into_response();
-            }
-            // TODO: mettre ne place envoi du mail
+    if let Some(u) = user
+        && let Ok(token) = crate::auth::generate_reset_token(u)
+    {
+        // En prod: envoi par mail plutot.
+        if !prod {
+            return (StatusCode::ACCEPTED, Json(json!({ "reset_token": token }))).into_response();
         }
+        // TODO: mettre ne place envoi du mail
     }
 
     (StatusCode::ACCEPTED, Json(json!({ "status": "ok" }))).into_response()
@@ -266,13 +264,11 @@ pub async fn confirm_password_reset(
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     };
 
-    if let Err(e) = sqlx::query!(
-        r#"UPDATE users SET password = $1 WHERE id = $2"#,
-        new_hash,
-        claims.sub
-    )
-    .execute(&pool)
-    .await
+    if let Err(e) = sqlx::query(r#"UPDATE users SET password = $1 WHERE id = $2"#)
+        .bind(new_hash)
+        .bind(claims.sub)
+        .execute(&pool)
+        .await
     {
         return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
     }

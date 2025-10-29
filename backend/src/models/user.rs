@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct User {
     pub id: Uuid,
     pub username: String,

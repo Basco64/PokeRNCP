@@ -1,21 +1,13 @@
 use axum::Router;
-use axum::routing::get;
+use axum::routing::{get, post};
 use sqlx::PgPool;
 
-use crate::handlers::pokemon::{
-    create_pokemon, delete_pokemon, get_pokemon, list_pokemons, update_pokemon,
-};
+use crate::handlers::pokemon::{catch, get_pokemon_by_id, list_all, search_pokemons};
 
 pub fn pokemon_routes() -> Router<PgPool> {
     Router::new()
-        .route(
-            "/users/{user_id}/pokemons",
-            get(list_pokemons).post(create_pokemon),
-        )
-        .route(
-            "/users/{user_id}/pokemons/{capture_id}",
-            get(get_pokemon)
-                .patch(update_pokemon)
-                .delete(delete_pokemon),
-        )
+        .route("/", get(list_all))
+        .route("/search", get(search_pokemons))
+        .route("/catch", post(catch))
+        .route("/{pokemon_id}", get(get_pokemon_by_id))
 }

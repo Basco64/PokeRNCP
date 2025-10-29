@@ -1,41 +1,34 @@
 use axum::{
     Json,
+    extract::Query,
     extract::{Path, State},
 };
 use sqlx::PgPool;
-use uuid::Uuid;
 
 use crate::auth::CurrentUser;
-use crate::helpers::{ApiResult, created, not_found, ok, to_500};
-use crate::models::pokemon::{CreateUserPokemon, UpdateUserPokemon, UserPokemon};
+use crate::helpers::{ApiResult, created, not_found, to_500};
+use crate::models::pokemon::{CatchByNamePayload, PokemonDetail, PokemonWithCaught, SearchParams};
 
-pub async fn list_pokemons(
-    CurrentUser(current_user): CurrentUser,
+pub async fn list_all(
+    CurrentUser(user_id): CurrentUser,
     State(pool): State<PgPool>,
-    Path(user_id): Path<Uuid>,
-) -> ApiResult<Json<Vec<UserPokemon>>> {
-    if current_user != user_id {
-        return Err(crate::helpers::unauthorized("ACCESS DENIED"));
-    }
-    let rows = sqlx::query_as!(
-        UserPokemon,
+) -> ApiResult<Json<Vec<PokemonWithCaught>>> {
+    let rows = sqlx::query_as::<_, PokemonWithCaught>(
         r#"
         SELECT
-            up.id                         AS "id!",
-            up.pokemon_id                 AS "pokemon_id!",
-            p.name                        AS "pokemon_name!",
-            p.type1                       AS "type1!",
-            p.type2                       AS "type2?",
-            up.nickname                   AS "nickname?", 
-            COALESCE(up.level, 1)         AS "level!: i32",      
-            up.captured_at                AS "captured_at!: time::OffsetDateTime"
-        FROM user_pokemon up
-        JOIN pokemon p ON p.id = up.pokemon_id
-        WHERE up.user_id = $1
-        ORDER BY up.captured_at DESC
+            p.id          AS id,
+            p.name        AS name,
+            p.type1       AS type1,
+            p.type2       AS type2,
+            EXISTS (
+                SELECT 1 FROM user_pokemon up
+                WHERE up.user_id = $1 AND up.pokemon_id = p.id
+            )            AS caught
+        FROM pokemon p
+        ORDER BY p.id
         "#,
-        user_id
     )
+    .bind(user_id)
     .fetch_all(&pool)
     .await
     .map_err(to_500)?;
@@ -43,33 +36,94 @@ pub async fn list_pokemons(
     Ok(Json(rows))
 }
 
-pub async fn get_pokemon(
-    CurrentUser(current_user): CurrentUser,
+pub async fn catch(
+    CurrentUser(user_id): CurrentUser,
     State(pool): State<PgPool>,
-    Path((user_id, capture_id)): Path<(Uuid, i32)>,
-) -> ApiResult<Json<UserPokemon>> {
-    if current_user != user_id {
-        return Err(crate::helpers::unauthorized("ACCESS DENIED"));
-    }
-    let row = sqlx::query_as!(
-        UserPokemon,
+    Json(payload): Json<CatchByNamePayload>,
+) -> ApiResult<(axum::http::StatusCode, String)> {
+    let pokemon_id = sqlx::query_scalar::<_, i32>(r#"SELECT id FROM pokemon WHERE name = $1"#)
+        .bind(&payload.name)
+        .fetch_optional(&pool)
+        .await
+        .map_err(to_500)?
+        .ok_or_else(|| not_found("Pokémon introuvable."))?;
+
+    let _ = sqlx::query(
+        r#"
+        INSERT INTO user_pokemon (user_id, pokemon_id, nickname)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (user_id, pokemon_id) DO NOTHING
+        "#,
+    )
+    .bind(user_id)
+    .bind(pokemon_id)
+    .bind(payload.nickname)
+    .execute(&pool)
+    .await
+    .map_err(to_500)?;
+
+    created("Pokémon marqué comme capturé.")
+}
+
+pub async fn search_pokemons(
+    CurrentUser(user_id): CurrentUser,
+    State(pool): State<PgPool>,
+    Query(params): Query<SearchParams>,
+) -> ApiResult<Json<Vec<PokemonWithCaught>>> {
+    let q = format!("{}%", params.q);
+    let rows = sqlx::query_as::<_, PokemonWithCaught>(
         r#"
         SELECT
-            up.id                         AS "id!",
-            up.pokemon_id                 AS "pokemon_id!",
-            p.name                        AS "pokemon_name!",
-            p.type1                       AS "type1!",
-            p.type2                       AS "type2?",
-            up.nickname                   AS "nickname?",
-            COALESCE(up.level, 1)         AS "level!: i32",
-            up.captured_at                AS "captured_at!: time::OffsetDateTime"
-        FROM user_pokemon up
-        JOIN pokemon p ON p.id = up.pokemon_id
-        WHERE up.user_id = $1 AND up.id = $2
+            p.id          AS id,
+            p.name        AS name,
+            p.type1       AS type1,
+            p.type2       AS type2,
+            EXISTS (
+                SELECT 1 FROM user_pokemon up
+                WHERE up.user_id = $1 AND up.pokemon_id = p.id
+            )            AS caught
+        FROM pokemon p
+        WHERE p.name ILIKE $2
+        ORDER BY p.name
+        LIMIT 10
         "#,
-        user_id,
-        capture_id
     )
+    .bind(user_id)
+    .bind(q)
+    .fetch_all(&pool)
+    .await
+    .map_err(to_500)?;
+    Ok(Json(rows))
+}
+
+pub async fn get_pokemon_by_id(
+    CurrentUser(user_id): CurrentUser,
+    State(pool): State<PgPool>,
+    Path(pokemon_id): Path<i32>,
+) -> ApiResult<Json<PokemonDetail>> {
+    let row = sqlx::query_as::<_, PokemonDetail>(
+        r#"
+        SELECT
+            p.id                 AS id,
+            p.name               AS name,
+            p.type1              AS type1,
+            p.type2              AS type2,
+            p.base_hp            AS base_hp,
+            p.base_attack        AS base_attack,
+            p.base_defense       AS base_defense,
+            p.base_sp_attack     AS base_sp_attack,
+            p.base_sp_defense    AS base_sp_defense,
+            p.base_speed         AS base_speed,
+            EXISTS (
+                SELECT 1 FROM user_pokemon up
+                WHERE up.user_id = $1 AND up.pokemon_id = p.id
+            )                   AS caught
+        FROM pokemon p
+        WHERE p.id = $2
+        "#,
+    )
+    .bind(user_id)
+    .bind(pokemon_id)
     .fetch_optional(&pool)
     .await
     .map_err(to_500)?;
@@ -79,89 +133,4 @@ pub async fn get_pokemon(
     };
 
     Ok(Json(row))
-}
-
-pub async fn create_pokemon(
-    CurrentUser(current_user): CurrentUser,
-    State(pool): State<PgPool>,
-    Path(user_id): Path<Uuid>,
-    Json(payload): Json<CreateUserPokemon>,
-) -> ApiResult<(axum::http::StatusCode, String)> {
-    if current_user != user_id {
-        return Err(crate::helpers::unauthorized("ACCESS DENIED"));
-    }
-    let capture_id: i32 = sqlx::query_scalar!(
-        r#"
-        INSERT INTO user_pokemon (user_id, pokemon_id, nickname, level)
-        VALUES ($1, $2, $3, COALESCE($4, 1))
-        RETURNING id
-        "#,
-        user_id,
-        payload.pokemon_id,
-        payload.nickname,
-        payload.level
-    )
-    .fetch_one(&pool)
-    .await
-    .map_err(to_500)?;
-
-    created(&format!("Pokémon capturé (capture_id={capture_id})."))
-}
-
-pub async fn update_pokemon(
-    CurrentUser(current_user): CurrentUser,
-    State(pool): State<PgPool>,
-    Path((user_id, capture_id)): Path<(Uuid, i32)>,
-    Json(payload): Json<UpdateUserPokemon>,
-) -> ApiResult<(axum::http::StatusCode, String)> {
-    if current_user != user_id {
-        return Err(crate::helpers::unauthorized("ACCESS DENIED"));
-    }
-    // COALESCE garde l’ancienne valeur si None
-    let res = sqlx::query!(
-        r#"
-        UPDATE user_pokemon
-        SET
-            nickname = COALESCE($3, nickname),
-            level    = COALESCE($4, level)
-        WHERE user_id = $1 AND id = $2
-        "#,
-        user_id,
-        capture_id,
-        payload.nickname,
-        payload.level
-    )
-    .execute(&pool)
-    .await
-    .map_err(to_500)?;
-
-    if res.rows_affected() == 0 {
-        return Err(not_found("Pokémon introuvable."));
-    }
-
-    ok("Pokémon mis à jour.")
-}
-
-pub async fn delete_pokemon(
-    CurrentUser(current_user): CurrentUser,
-    State(pool): State<PgPool>,
-    Path((user_id, capture_id)): Path<(Uuid, i32)>,
-) -> ApiResult<(axum::http::StatusCode, String)> {
-    if current_user != user_id {
-        return Err(crate::helpers::unauthorized("ACCESS DENIED"));
-    }
-    let res = sqlx::query!(
-        "DELETE FROM user_pokemon WHERE user_id = $1 AND id = $2",
-        user_id,
-        capture_id
-    )
-    .execute(&pool)
-    .await
-    .map_err(to_500)?;
-
-    if res.rows_affected() == 0 {
-        return Err(not_found("Pokémon introuvable."));
-    }
-
-    ok("Pokémon supprimé.")
 }

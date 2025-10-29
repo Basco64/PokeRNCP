@@ -18,6 +18,17 @@ fn get_bearer(headers: &HeaderMap) -> Option<String> {
     v.strip_prefix("Bearer ").map(|s| s.to_string())
 }
 
+fn get_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
+    let cookie_header = headers.get(header::COOKIE)?.to_str().ok()?;
+    for part in cookie_header.split(';') {
+        let p = part.trim();
+        if let Some(v) = p.strip_prefix(&format!("{name}=")) {
+            return Some(v.to_string());
+        }
+    }
+    None
+}
+
 pub async fn login_user(
     State(pool): State<PgPool>,
     Json(payload): Json<LoginUser>,
@@ -60,7 +71,7 @@ pub async fn login_user(
 
     let prod = std::env::var("PRODUCTION_MODE")
         .ok()
-        .map_or(false, |v| v == "true");
+        .is_some_and(|v| v == "true");
     let secure_flag = if prod { "; Secure" } else { "" };
 
     let access_cookie =
@@ -83,8 +94,9 @@ pub async fn login_user(
 }
 
 pub async fn refresh_token(headers: HeaderMap) -> impl IntoResponse {
-    let Some(token) = get_bearer(&headers) else {
-        return crate::helpers::unauthorized("Authorization Bearer requis").into_response();
+    let token = get_bearer(&headers).or_else(|| get_cookie(&headers, "refresh"));
+    let Some(token) = token else {
+        return crate::helpers::unauthorized("Refresh token requis").into_response();
     };
 
     let claims = match crate::auth::verify_refresh(&token) {
@@ -102,7 +114,7 @@ pub async fn refresh_token(headers: HeaderMap) -> impl IntoResponse {
         .unwrap_or_else(|| "900".into());
     let prod = std::env::var("PRODUCTION_MODE")
         .ok()
-        .map_or(false, |v| v == "true");
+        .is_some_and(|v| v == "true");
     let secure_flag = if prod { "; Secure" } else { "" };
 
     let access_cookie =
@@ -119,7 +131,7 @@ pub async fn refresh_token(headers: HeaderMap) -> impl IntoResponse {
 pub async fn logout_user() -> impl IntoResponse {
     let prod = std::env::var("PRODUCTION_MODE")
         .ok()
-        .map_or(false, |v| v == "true");
+        .is_some_and(|v| v == "true");
     let secure_flag = if prod { "; Secure" } else { "" };
 
     let mut res = "Déconnecté.".to_string().into_response();
@@ -212,22 +224,19 @@ pub async fn request_password_reset(
 ) -> impl IntoResponse {
     let prod = std::env::var("PRODUCTION_MODE")
         .ok()
-        .map_or(false, |v| v == "true");
+        .is_some_and(|v| v == "true");
 
-    let user = match sqlx::query!(
+    let user = (sqlx::query!(
         r#"SELECT id FROM users WHERE email = $1 OR username = $1"#,
         payload.email_or_username
     )
     .fetch_optional(&pool)
-    .await
-    {
-        Ok(u) => u,
-        Err(_) => None,
-    };
+    .await)
+        .unwrap_or_default();
 
     if let Some(u) = user {
         if let Ok(token) = crate::auth::generate_reset_token(u.id) {
-            // En prod: ne pas retourner le token (envoi par mail plutot).
+            // En prod: envoi par mail plutot.
             if !prod {
                 return (StatusCode::ACCEPTED, Json(json!({ "reset_token": token })))
                     .into_response();

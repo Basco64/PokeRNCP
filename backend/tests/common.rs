@@ -1,9 +1,10 @@
 use axum::Router;
 use axum::http::{HeaderValue, Method};
-use sqlx::{PgPool, postgres::PgPoolOptions};
+use sqlx::{Connection, PgPool};
 use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio::sync::OnceCell;
+use uuid::Uuid;
 
 static POOL: OnceCell<PgPool> = OnceCell::const_new();
 
@@ -12,19 +13,8 @@ pub async fn test_pool() -> &'static PgPool {
 
     POOL.get_or_init(|| async {
         let url = std::env::var("TEST_DATABASE_URL").expect("Set TEST_DATABASE_URL for tests");
-
         eprintln!("[tests] Using TEST_DATABASE_URL={}", url);
-        let pool = sqlx::postgres::PgPoolOptions::new()
-            .max_connections(30)
-            .acquire_timeout(Duration::from_secs(30))
-            .connect(&url)
-            .await
-            .expect("DB connect failed");
-        sqlx::migrate!("./migrations")
-            .run(&pool)
-            .await
-            .expect("Migration failed");
-        pool
+        pokedex_rncp_backend::db::init_db(&url).await
     })
     .await
 }
@@ -41,16 +31,7 @@ pub async fn start_server() -> (String, tokio::task::JoinHandle<()>) {
     let url = std::env::var("TEST_DATABASE_URL")
         .or_else(|_| std::env::var("DATABASE_URL"))
         .expect("Set TEST_DATABASE_URL for tests");
-    let pool = PgPoolOptions::new()
-        .max_connections(10)
-        .acquire_timeout(Duration::from_secs(15))
-        .connect(&url)
-        .await
-        .expect("server DB connect failed");
-    sqlx::migrate!("./migrations")
-        .run(&pool)
-        .await
-        .expect("Migration failed (server)");
+    let pool = pokedex_rncp_backend::db::init_db(&url).await;
     let origin =
         std::env::var("FRONTEND_ORIGIN").unwrap_or_else(|_| "http://localhost:3000".into());
     let cors = tower_http::cors::CorsLayer::new()
@@ -93,4 +74,79 @@ pub async fn start_server() -> (String, tokio::task::JoinHandle<()>) {
     }
 
     (url, handle)
+}
+
+#[allow(dead_code)]
+pub async fn create_test_user(base: &str) -> (Uuid, String, String, String) {
+    let _ = dotenvy::dotenv();
+    let url = std::env::var("TEST_DATABASE_URL")
+        .or_else(|_| std::env::var("DATABASE_URL"))
+        .expect("Set TEST_DATABASE_URL for tests");
+    let mut conn = sqlx::PgConnection::connect(&url)
+        .await
+        .expect("connect for insertion failed");
+    let suffix = Uuid::new_v4().simple().to_string();
+    let short = &suffix[..8];
+    let mut username = format!("{}_{}", base, short);
+    if username.len() > 50 {
+        username.truncate(50);
+    }
+    let email = format!("{}@example.com", username);
+    let password = "TestPassword123!".to_string();
+    let hash = pokedex_rncp_backend::auth::hash_password(&password).expect("hash_password failed");
+
+    let id: Uuid = sqlx::query_scalar(
+        r#"
+        INSERT INTO users (username, email, password)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (username)
+        DO UPDATE SET email = EXCLUDED.email, password = EXCLUDED.password
+        RETURNING id
+        "#,
+    )
+    .bind(&username)
+    .bind(&email)
+    .bind(&hash)
+    .fetch_one(&mut conn)
+    .await
+    .expect("insert user failed");
+
+    (id, username, email, password)
+}
+#[allow(dead_code)]
+pub async fn delete_user(username: &str) {
+    if let Ok(url) = std::env::var("TEST_DATABASE_URL") {
+        if let Ok(mut conn) = sqlx::PgConnection::connect(&url).await {
+            let _ = sqlx::query("DELETE FROM users WHERE username = $1")
+                .bind(username)
+                .execute(&mut conn)
+                .await;
+        }
+    }
+}
+#[allow(dead_code)]
+pub async fn ensure_pokemon(name: &str, type1: &str) -> i32 {
+    let pool = test_pool().await;
+    let id: i32 = sqlx::query_scalar(
+        r#"
+        INSERT INTO pokemon (name, type1)
+        VALUES ($1, $2)
+        ON CONFLICT (name) DO UPDATE SET type1 = EXCLUDED.type1
+        RETURNING id
+        "#,
+    )
+    .bind(name)
+    .bind(type1)
+    .fetch_one(pool)
+    .await
+    .expect("insert/select pokemon failed");
+    id
+}
+#[allow(dead_code)]
+pub fn cookie_header(pairs: &[(&str, &str)]) -> String {
+    pairs
+        .iter()
+        .map(|(k, v)| format!("{}={}", k, v))
+        .collect::<Vec<_>>()
+        .join("; ")
 }

@@ -3,47 +3,9 @@ use pokedex_rncp_backend as backend;
 use reqwest::StatusCode;
 use serde_json::json;
 use sqlx::{Connection, Row};
-use uuid::Uuid;
 
 mod common;
-use common::{start_server, test_pool};
-
-async fn insertion_test_user(username: &str, email: &str, password: &str) -> Uuid {
-    let _ = test_pool().await;
-    let url = std::env::var("TEST_DATABASE_URL").expect("Set TEST_DATABASE_URL for tests");
-    let mut conn = sqlx::PgConnection::connect(&url)
-        .await
-        .expect("connect for insertion failed");
-    let hash = backend::auth::hash_password(password).expect("hash_password failed");
-    let row = sqlx::query(
-        r#"
-        INSERT INTO users (username, email, password)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (username)
-        DO UPDATE SET email = EXCLUDED.email, password = EXCLUDED.password
-        RETURNING id
-        "#,
-    )
-    .bind(username)
-    .bind(email)
-    .bind(hash)
-    .fetch_one(&mut conn)
-    .await
-    .expect("insert user failed");
-
-    row.get::<Uuid, _>("id")
-}
-
-async fn suppression_user(username: &str) {
-    if let Ok(url) = std::env::var("TEST_DATABASE_URL") {
-        if let Ok(mut conn) = sqlx::PgConnection::connect(&url).await {
-            let _ = sqlx::query("DELETE FROM users WHERE username = $1")
-                .bind(username)
-                .execute(&mut conn)
-                .await;
-        }
-    }
-}
+use common::{cookie_header, create_test_user, delete_user, start_server};
 
 #[tokio::test]
 async fn me_requiert_authentification() {
@@ -58,12 +20,11 @@ async fn me_requiert_authentification() {
     assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
 
     handle.abort();
-    suppression_user("basco").await;
 }
 
 #[tokio::test]
 async fn me_ok_avec_bearer() {
-    let uid = insertion_test_user("basco", "basco@example.com", "Password123!").await;
+    let (uid, username, _email, _pwd) = create_test_user("basco").await;
     let (base, handle) = start_server().await;
     let client = reqwest::Client::new();
     let access = backend::auth::generate_access_token(uid).expect("access token");
@@ -77,13 +38,12 @@ async fn me_ok_avec_bearer() {
     assert_eq!(res.status(), StatusCode::OK);
 
     handle.abort();
-    suppression_user("basco").await;
+    delete_user(&username).await;
 }
 
 #[tokio::test]
 async fn refresh_token_requiert_bearer_et_definit_cookie() {
-    let uid =
-        insertion_test_user("basco_refresh", "basco_refresh@example.com", "Password123!").await;
+    let (uid, username, _email, _pwd) = create_test_user("basco_refresh").await;
     let (base, handle) = start_server().await;
     let client = reqwest::Client::new();
     let refresh = backend::auth::generate_refresh_token(uid).expect("refresh token");
@@ -108,20 +68,32 @@ async fn refresh_token_requiert_bearer_et_definit_cookie() {
     );
 
     handle.abort();
-    suppression_user("basco_refresh").await;
+    delete_user(&username).await;
 }
 
 #[tokio::test]
 async fn reset_mot_de_passe_retourne_token_et_confirmation_mise_a_jour() {
     let old_password = "OldPassword123!";
     let new_password = "NewPassword123!";
-    let uid = insertion_test_user("basco_reset", "basco_reset@example.com", old_password).await;
+    let (uid, username, email, _pwd) = create_test_user("basco_reset").await;
+    let url = std::env::var("TEST_DATABASE_URL").expect("Set TEST_DATABASE_URL for tests");
+    let mut conn = sqlx::PgConnection::connect(&url)
+        .await
+        .expect("connect for setup failed");
+    let newhash = backend::auth::hash_password(old_password).unwrap();
+    let _ = sqlx::query("UPDATE users SET password = $1 WHERE id = $2")
+        .bind(&newhash)
+        .bind(uid)
+        .execute(&mut conn)
+        .await
+        .unwrap();
+
     let (base, handle) = start_server().await;
     let client = reqwest::Client::new();
 
     let res = client
         .post(format!("{}/api/auth/request-password-reset", base))
-        .json(&json!({ "email_or_username": "basco_reset@example.com" }))
+        .json(&json!({ "email_or_username": email }))
         .send()
         .await
         .unwrap();
@@ -142,19 +114,115 @@ async fn reset_mot_de_passe_retourne_token_et_confirmation_mise_a_jour() {
         );
     }
 
-    // Stop the server before verifying to avoid any pool contention
     handle.abort();
 
     let url = std::env::var("TEST_DATABASE_URL").expect("Set TEST_DATABASE_URL for tests");
     let mut conn = sqlx::PgConnection::connect(&url)
         .await
         .expect("connect for verification failed");
-    let row = sqlx::query(r#"SELECT password FROM users WHERE email = $1"#)
-        .bind("basco_reset@example.com")
+    let row = sqlx::query(r#"SELECT password FROM users WHERE id = $1"#)
+        .bind(uid)
         .fetch_one(&mut conn)
         .await
         .expect("user fetch failed");
     let password: String = row.get("password");
     assert!(backend::auth::verify_password(&password, new_password));
-    suppression_user("basco_reset").await;
+    delete_user(&username).await;
+}
+
+#[tokio::test]
+async fn me_ok_avec_cookie_auth() {
+    let (uid, username, _email, _pwd) = create_test_user("me_cookie").await;
+    let (base, handle) = start_server().await;
+    let client = reqwest::Client::new();
+    let access = backend::auth::generate_access_token(uid).expect("access token");
+
+    let res = client
+        .get(format!("{}/api/auth/me", base))
+        .header(reqwest::header::COOKIE, cookie_header(&[("auth", &access)]))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let body = res.json::<serde_json::Value>().await.unwrap();
+    assert_eq!(body["username"], username);
+
+    handle.abort();
+    delete_user(&username).await;
+}
+
+#[tokio::test]
+async fn refresh_token_ok_avec_cookie_refresh() {
+    let (uid, username, _email, _pwd) = create_test_user("refresh_cookie").await;
+    let (base, handle) = start_server().await;
+    let client = reqwest::Client::new();
+    let refresh = backend::auth::generate_refresh_token(uid).expect("refresh token");
+
+    let res = client
+        .post(format!("{}/api/auth/refresh-token", base))
+        .header(
+            reqwest::header::COOKIE,
+            cookie_header(&[("refresh", &refresh)]),
+        )
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let set_cookie = res
+        .headers()
+        .get(reqwest::header::SET_COOKIE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    assert!(set_cookie.contains("auth="));
+
+    handle.abort();
+    delete_user(&username).await;
+}
+
+#[tokio::test]
+async fn logout_definit_cookies_expirants() {
+    let (base, handle) = start_server().await;
+    let client = reqwest::Client::new();
+
+    let res = client
+        .post(format!("{}/api/auth/logout", base))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let set_cookie = res
+        .headers()
+        .get_all(reqwest::header::SET_COOKIE)
+        .iter()
+        .map(|v| v.to_str().unwrap_or(""))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(set_cookie.contains("auth="));
+    assert!(set_cookie.contains("Max-Age=0"));
+    assert!(set_cookie.contains("refresh="));
+    handle.abort();
+}
+
+#[tokio::test]
+async fn tokens_invalides_donnent_401() {
+    let (base, handle) = start_server().await;
+    let client = reqwest::Client::new();
+
+    let res = client
+        .get(format!("{}/api/auth/me", base))
+        .bearer_auth("invalid.token")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+
+    let res = client
+        .post(format!("{}/api/auth/refresh-token", base))
+        .bearer_auth("invalid.token")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+
+    handle.abort();
 }

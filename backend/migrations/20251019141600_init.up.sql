@@ -19,7 +19,10 @@ CREATE TABLE IF NOT EXISTS pokemon (
     type2 VARCHAR(20),
     base_hp INTEGER,
     base_attack INTEGER,
-    base_defense INTEGER
+    base_defense INTEGER,
+    base_sp_attack INTEGER,
+    base_sp_defense INTEGER,
+    base_speed INTEGER
 );
 
 -- ===== TABLE ASSOCIATIVE USER_POKEMON =====
@@ -28,9 +31,8 @@ CREATE TABLE IF NOT EXISTS user_pokemon (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     pokemon_id INTEGER NOT NULL REFERENCES pokemon(id),
     nickname VARCHAR(50),
-    level INTEGER NOT NULL DEFAULT 1,
-    captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(user_id, pokemon_id, nickname)
+    discovered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, pokemon_id)
 );
 
 -- ===== INDEX =====

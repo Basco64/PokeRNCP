@@ -78,7 +78,7 @@ async fn seed_from_json(pool: &PgPool, json_path: &str) -> Result<(), Box<dyn st
             .and_then(|v| v.as_array())
             .ok_or("champ 'type' manquant")?;
         let type1 = types
-            .get(0)
+            .first()
             .and_then(|v| v.as_str())
             .ok_or("type[0] manquant")?;
         let type2 = types.get(1).and_then(|v| v.as_str());
@@ -151,7 +151,7 @@ async fn seed_from_json(pool: &PgPool, json_path: &str) -> Result<(), Box<dyn st
             "#,
         )
         .bind(name)
-        .bind(&type1)
+        .bind(type1)
         .bind(type2)
         .bind(hp)
         .bind(atk)

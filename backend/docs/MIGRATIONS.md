@@ -22,7 +22,7 @@ cargo install sqlx-cli --no-default-features --features rustls,postgres
 sqlx database create --database-url "$DATABASE_URL"
 
 # Créer une nouvelle migration (ex)
-sqlx migrate add your_feature
+sqlx migrate add "add_feature_name"
 
 # Appliquer toutes les migrations en attente
 sqlx migrate run --database-url "$DATABASE_URL"
@@ -43,9 +43,9 @@ export DATABASE_URL='postgres://user:pass@localhost:5432/PokeRNCP'
 ## Exemples dans ce repo
 
 - `20251019141600_init` — Schéma initial (users, pokemon, user_pokemon, index)
-- `20251029120000_add_user_profile_fields` — Ajout de colonnes facultatives/sûres (`bio`, `is_active`)
-- `20251029121000_add_audit_logs` — Nouvelle table annexe avec indexes (`audit_logs`)
-- `20251029122000_email_lowercase_data_migration` — Migration de données (mise en minuscule des emails)
+- `20251029123000_add_pokemon_image_and_number` — Ajoute `dex_no` et `image_url` à `pokemon`
+- `20251029124000_add_pokemon_measurements_and_weaknesses` — Ajoute `height_m`, `weight_kg`, `weaknesses`
+- `20251029190000_update_pokemon_drop_weaknesses_add_description` — Supprime `weaknesses`, ajoute `description`
 
 ### Bonnes pratiques
 

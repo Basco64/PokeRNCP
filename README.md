@@ -15,9 +15,9 @@
 - JWT_REFRESH_EXP_SECONDS (optionnel, défaut 2592000)
 - RESET_SECRET (optionnel, défaut JWT_SECRET)
 - RESET_TOKEN_EXP_SECONDS (optionnel, défaut 3600)
-- FRONTEND_ORIGIN: ex http://localhost:8080 (CORS)
-- BACKEND_URL: ex 0.0.0.0:8080 (bind)
-- PRODUCTION_MODE: "true" en prod pour ajouter Secure sur les cookies
+- FRONTEND_ORIGIN: ex http://localhost:3000 (CORS)
+- BACKEND_URL: adresse d'écoute du backend. Accepte soit "hôte:port" (ex: 0.0.0.0:8080), soit une URL complète (ex: http://0.0.0.0:8080).
+- PRODUCTION_MODE: "true" en prod pour ajouter Secure sur les cookies.
 
 ### Initialisation base de données
 
@@ -28,7 +28,7 @@ sqlx database create --database-url "$DATABASE_URL"
 sqlx migrate run   --database-url "$DATABASE_URL"
 ```
 
-Au premier démarrage du serveur, un seed auto insère la Gen1 si la table `pokemon` est vide.
+Au premier démarrage du serveur, un seed auto insère les `LEN_POKEDEX` premières entrées du fichier `backend/data/pokedex.json` si la table `pokemon` est vide (par défaut 649).
 Le seed est idempotent (UPSERT par name). Pour re-seed: vider la table puis relancer.
 
 Vider la table proprement (PostgreSQL):
@@ -55,6 +55,7 @@ cargo install cargo-nextest
 ```
 
 Variables utiles pour les tests:
+
 - TEST_DATABASE_URL: URL Postgres de test; sinon fallback sur DATABASE_URL.
 
 Lancer les tests:
@@ -70,6 +71,7 @@ cargo test -q
 ```
 
 Dans VS Code:
+
 - Menu “Run Task…” → “Test (nextest)” est la tâche de test par défaut.
 
 ### API — Auth
@@ -172,4 +174,5 @@ Note: La lecture du profil se fait via GET /api/auth/me (GET /api/users/{id} ret
 
 - Les endpoints protégés utilisent CurrentUser qui lit en priorité le cookie httpOnly "auth" (ou Authorization: Bearer access).
 - CORS est configuré via FRONTEND_ORIGIN.
+- Le backend écoute strictement sur BACKEND_URL (PORT n'est plus pris en charge dans le code). Si votre plateforme fournit uniquement PORT, définissez `BACKEND_URL=0.0.0.0:$PORT` au démarrage.
 - Seed JSON: `backend/data/pokedex.json`. Pour ajouter d'autres seed: utiliser `seed_from_json(&pool, "data/genX.json")`.

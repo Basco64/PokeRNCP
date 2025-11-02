@@ -1,0 +1,29 @@
+<!DOCTYPE html><!DOCTYPE html>
+
+<html lang="fr"><html lang="fr">
+
+  <head>  <head>
+
+    <meta charset="utf-8" />    <meta charset="utf-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>PokeRNCP</title>    <title>PokeRNCP</title>
+
+    <link data-trunk rel="css" href="styles/styles.css" />    <!-- Trunk will build & load the Yew app -->
+
+    <link data-trunk rel="rust" />    <link data-trunk rel="rust" />
+
+  </head>    <!-- Copy the styles directory into dist and load our CSS -->
+
+  <body>    <link data-trunk rel="copy-dir" href="styles" />
+
+    <div id="root"></div>    <link rel="stylesheet" href="./styles/app.css" />
+
+  </body>    <!-- If backend runs on another origin in dev, uncomment and set proxy -->
+
+</html>    <!-- <meta name="trunk-serve-proxy" data-trunk-proxy="/api=http://localhost:8080" /> -->
+
+  </head>
+  <body></body>
+</html>

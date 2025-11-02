@@ -1,8 +1,28 @@
+## Démarrage rapide — Application complète
+
+Démarrer (app + Postgres):
+
+```bash
+docker compose up -d --build
+```
+
+Arrêter:
+
+```bash
+docker compose down
+```
+
+Ouvre http://localhost:8080 (UI + API /api). Si tu utilises une autre base, adapte `DATABASE_URL`.
+
+Si besoin, on peut démarrer uniquement le backend (voir plus bas).
+
+---
+
 ## Backend — PokeRNCP
 
 ### Prérequis
 
-- PostgreSQL 14+
+- PostgreSQL 18+
 - Rust (toolchain stable) + Cargo
 - sqlx-cli (pour gérer la DB en ligne de commande)
 

@@ -1,13 +1,34 @@
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
+use std::time::Duration;
+use tokio::time::sleep;
 
 async fn connect_to_db(url: &str) -> Result<PgPool, sqlx::Error> {
-    let db_pool = PgPoolOptions::new()
-        .max_connections(30)
+    // Try a few times in case Postgres just became healthy but isn't accepting TCP yet.
+    let mut backoff = 1u64;
+    for attempt in 1..=6 {
+        match PgPoolOptions::new()
+            .max_connections(10)
+            .acquire_timeout(Duration::from_secs(10))
+            .connect(url)
+            .await
+        {
+            Ok(pool) => return Ok(pool),
+            Err(e) => {
+                eprintln!(
+                    "⏳ Connexion DB tentative {attempt}/6 échouée: {e} (re-tentative dans {backoff}s)"
+                );
+                sleep(Duration::from_secs(backoff)).await;
+                backoff = (backoff * 2).min(8);
+            }
+        }
+    }
+    // Dernière tentative avec timeout un peu plus long pour surface l'erreur claire si ça persiste
+    PgPoolOptions::new()
+        .max_connections(10)
+        .acquire_timeout(Duration::from_secs(30))
         .connect(url)
-        .await?;
-
-    Ok(db_pool)
+        .await
 }
 
 async fn run_migrations(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {

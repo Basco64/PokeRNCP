@@ -1,0 +1,21 @@
+# VCS
+.git
+.gitignore
+
+# Editor/OS
+.vscode
+.idea
+.DS_Store
+
+# Rust build outputs
+/target
+backend/target
+frontend/target
+
+# Frontend dist
+frontend/dist
+
+# Tests/temp
+**/tmp
+**/.pytest_cache
+**/__pycache__

@@ -178,7 +178,8 @@ where
 
         let claims = verify_access(&token)
             .map_err(|_| (StatusCode::UNAUTHORIZED, "Token invalide".into()))?;
-
+        // Définit l'utilisateur courant pour enrichir les logs
+        crate::helpers::set_current_user(Some(claims.sub));
         Ok(CurrentUser(claims.sub))
     }
 }

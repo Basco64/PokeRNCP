@@ -1,0 +1,48 @@
+# Comments are provided throughout this file to help you get started.
+# If you need more help, visit the Docker compose reference guide at
+# https://docs.docker.com/reference/compose-file/
+
+# Here the instructions define your application as a service called "server".
+# This service is built from the Dockerfile in the current directory.
+# You can add other services your application may depend on here, such as a
+# database or a cache. For examples, see the Awesome Compose repository:
+# https://github.com/docker/awesome-compose
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: rncp
+      POSTGRES_PASSWORD: rncp
+      POSTGRES_DB: rncp
+    volumes:
+      - db18-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rncp -d rncp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  app:
+    build:
+      context: .
+      args:
+        RUST_VERSION: "1.91.0"
+        DEBIAN_SUITE: "trixie"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://rncp:rncp@db:5432/rncp
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-too}
+      RESET_SECRET: ${RESET_SECRET:-change-me-reset}
+      PRODUCTION_MODE: ${PRODUCTION_MODE:-false}
+    ports:
+      - "8080:8080"
+
+volumes:
+  db18-data:

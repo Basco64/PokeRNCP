@@ -1,7 +1,7 @@
-use yew::prelude::*;
 use gloo_net::http::Request;
-use wasm_bindgen_futures::spawn_local;
 use serde::Serialize;
+use wasm_bindgen_futures::spawn_local;
+use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
@@ -27,7 +27,10 @@ pub fn SignUpForm(props: &Props) -> Html {
         let error = error.clone();
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
-            let body = SignupBody { email: (*email).clone(), password: (*password).clone() };
+            let body = SignupBody {
+                email: (*email).clone(),
+                password: (*password).clone(),
+            };
             let on_logged_in = on_logged_in.clone();
             let error = error.clone();
             spawn_local(async move {
@@ -36,8 +39,11 @@ pub fn SignUpForm(props: &Props) -> Html {
                     .json(&body)
                     .unwrap()
                     .send()
-                    .await {
-                    Ok(resp) if resp.status() == 201 || resp.status() == 200 => on_logged_in.emit(()),
+                    .await
+                {
+                    Ok(resp) if resp.status() == 201 || resp.status() == 200 => {
+                        on_logged_in.emit(())
+                    }
                     Ok(resp) => error.set(Some(format!("Échec inscription ({}).", resp.status()))),
                     Err(err) => error.set(Some(format!("Erreur réseau: {}", err))),
                 }

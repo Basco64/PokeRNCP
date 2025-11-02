@@ -6,10 +6,13 @@ edition = "2021"
 [dependencies]
 yew = { version = "0.21", features = ["csr"] }
 gloo-net = "0.5"
+gloo-timers = { version = "0.2", features = ["futures"] }
+gloo-storage = "0.2"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = ["Request", "RequestInit", "RequestMode", "RequestCredentials", "Response", "Window", "Document", "HtmlElement"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+urlencoding = "2"
 
 [profile.release]
 opt-level = "z"

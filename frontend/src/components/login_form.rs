@@ -1,7 +1,7 @@
-use yew::prelude::*;
 use gloo_net::http::Request;
-use wasm_bindgen_futures::spawn_local;
 use serde::Serialize;
+use wasm_bindgen_futures::spawn_local;
+use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
@@ -10,24 +10,28 @@ pub struct Props {
 
 #[derive(Serialize)]
 struct LoginBody {
-    email: String,
+    // Backend attend un champ `username` (peut être email ou username)
+    username: String,
     password: String,
 }
 
 #[function_component]
 pub fn LoginForm(props: &Props) -> Html {
-    let email = use_state(|| String::new());
+    let username = use_state(|| String::new());
     let password = use_state(|| String::new());
     let error = use_state(|| None as Option<String>);
 
     let on_submit = {
-        let email = email.clone();
+        let username = username.clone();
         let password = password.clone();
         let on_logged_in = props.on_logged_in.clone();
         let error = error.clone();
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
-            let body = LoginBody { email: (*email).clone(), password: (*password).clone() };
+            let body = LoginBody {
+                username: (*username).clone(),
+                password: (*password).clone(),
+            };
             let on_logged_in = on_logged_in.clone();
             let error = error.clone();
             spawn_local(async move {
@@ -36,7 +40,8 @@ pub fn LoginForm(props: &Props) -> Html {
                     .json(&body)
                     .unwrap()
                     .send()
-                    .await {
+                    .await
+                {
                     Ok(resp) if resp.status() == 200 => on_logged_in.emit(()),
                     Ok(resp) => error.set(Some(format!("Échec connexion ({}).", resp.status()))),
                     Err(err) => error.set(Some(format!("Erreur réseau: {}", err))),
@@ -48,8 +53,8 @@ pub fn LoginForm(props: &Props) -> Html {
     html! {
         <form onsubmit={on_submit} class="form auth-form">
             <div class="field">
-                <label>{"Email"}</label>
-                <input type="email" value={(*email).clone()} oninput={{ let email = email.clone(); Callback::from(move |e: InputEvent| { if let Some(t) = e.target_dyn_into::<web_sys::HtmlInputElement>() { email.set(t.value()); } }) }} />
+                <label>{"Email ou nom d'utilisateur"}</label>
+                <input type="text" placeholder="ex: ash ou ash@example.com" value={(*username).clone()} oninput={{ let username = username.clone(); Callback::from(move |e: InputEvent| { if let Some(t) = e.target_dyn_into::<web_sys::HtmlInputElement>() { username.set(t.value()); } }) }} />
             </div>
             <div class="field">
                 <label>{"Mot de passe"}</label>

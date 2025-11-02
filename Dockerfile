@@ -9,13 +9,14 @@ ARG DEBIAN_SUITE=trixie
 
 FROM rust:${RUST_VERSION}-slim-${DEBIAN_SUITE} AS frontend-builder
 WORKDIR /app/frontend
-RUN rustup target add wasm32-unknown-unknown && cargo install trunk
+RUN rustup target add wasm32-unknown-unknown && cargo install trunk && \
+    apt-get update && apt-get install -y --no-install-recommends binaryen && rm -rf /var/lib/apt/lists/*
 
 ENV CARGO_TARGET_DIR=/app/target
-RUN --mount=type=bind,source=frontend,target=.,readonly \
-    --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/app/target \
-    trunk build --release --dist /app/dist
+COPY frontend/ .
+RUN trunk build --dist /app/dist && \
+    set -eux; wasm_file=$(find /app/dist -maxdepth 1 -name '*_bg.wasm' | head -n 1 || true); \
+    if [ -n "$wasm_file" ]; then wasm-opt -O --enable-bulk-memory -o "$wasm_file" "$wasm_file"; fi
 
 ########################################
 # Backend build (Axum)
@@ -26,9 +27,7 @@ WORKDIR /app/backend
 
 COPY backend/ .
 
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/app/backend/target \
-    cargo build --release && \
+RUN cargo build --release && \
     cp /app/backend/target/release/pokedex_rncp_backend /app/pokedex_rncp_backend
 
 ########################################

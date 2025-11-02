@@ -1,61 +1,31 @@
+:root {
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
+  --primary: #ef5350;
+  --primary-dark: #e53935;
+  --accent: #ffd54f;
+  --btn-blue: #42a5f5;
+  --btn-green: #66bb6a;
+  --btn-purple: #ab47bc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   margin: 0;
+  color: var(--text);
+  background-color: "#f8f9fa";
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
-.header {
-  background: #ef5350;
-  color: white;
-  padding: 12px 16px;
-}
-.content {
-  padding: 16px;
-}
-.page-header-actions button {
-  margin-right: 8px;
-}
-.loginbutton {
-  background: #42a5f5;
-  color: #fff;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.inscriptionbutton {
-  background: #66bb6a;
-  color: #fff;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.logoutbutton {
-  background: #ab47bc;
-  color: #fff;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.form .field {
-  margin-bottom: 8px;
-  display: flex;
-  flex-direction: column;
-  max-width: 320px;
-}
-.form input {
-  padding: 6px 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-.error {
-  color: #c62828;
-}
-.pokedex-json,
-.profile-json {
-  background: #f6f8fa;
-  padding: 12px;
-  border: 1px solid #e1e4e8;
-  border-radius: 4px;
-  overflow: auto;
+
+.layout {
+  max-width: 980px;
+  /* Intentionally left empty: styles split into layout.css, profile.css, and pokedex.css. */
+  background: var(--card);
 }

@@ -1,5 +1,9 @@
-**/target/
 **/.env
-backend/target/
-frontend/target/
+target/
+target-test/
+**/target/
+**/target-test/
 frontend/dist/
+backend/target/
+backend/target-test/
+frontend/target/

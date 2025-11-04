@@ -4,7 +4,6 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 async fn connect_to_db(url: &str) -> Result<PgPool, sqlx::Error> {
-    // Try a few times in case Postgres just became healthy but isn't accepting TCP yet.
     let mut backoff = 1u64;
     for attempt in 1..=6 {
         match PgPoolOptions::new()
@@ -23,7 +22,6 @@ async fn connect_to_db(url: &str) -> Result<PgPool, sqlx::Error> {
             }
         }
     }
-    // Dernière tentative avec timeout un peu plus long pour surface l'erreur claire si ça persiste
     PgPoolOptions::new()
         .max_connections(10)
         .acquire_timeout(Duration::from_secs(30))

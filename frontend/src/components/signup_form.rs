@@ -10,17 +10,20 @@ pub struct Props {
 
 #[derive(Serialize)]
 struct SignupBody {
-    email: String,
+    username: String,
+    email: Option<String>,
     password: String,
 }
 
 #[function_component]
 pub fn SignUpForm(props: &Props) -> Html {
+    let username = use_state(|| String::new());
     let email = use_state(|| String::new());
     let password = use_state(|| String::new());
     let error = use_state(|| None as Option<String>);
 
     let on_submit = {
+        let username = username.clone();
         let email = email.clone();
         let password = password.clone();
         let on_logged_in = props.on_logged_in.clone();
@@ -28,13 +31,19 @@ pub fn SignUpForm(props: &Props) -> Html {
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
             let body = SignupBody {
-                email: (*email).clone(),
+                username: (*username).clone(),
+                email: if email.is_empty() {
+                    None
+                } else {
+                    Some((*email).clone())
+                },
                 password: (*password).clone(),
             };
             let on_logged_in = on_logged_in.clone();
             let error = error.clone();
             spawn_local(async move {
-                match Request::post("/api/auth/signup")
+                // Backend expects POST /api/users (CreateUser { username, email?, password })
+                match Request::post("/api/users")
                     .credentials(web_sys::RequestCredentials::Include)
                     .json(&body)
                     .unwrap()
@@ -54,7 +63,11 @@ pub fn SignUpForm(props: &Props) -> Html {
     html! {
         <form onsubmit={on_submit} class="form auth-form">
             <div class="field">
-                <label>{"Email"}</label>
+                <label>{"Nom d'utilisateur"}</label>
+                <input type="text" value={(*username).clone()} oninput={{ let username = username.clone(); Callback::from(move |e: InputEvent| { if let Some(t) = e.target_dyn_into::<web_sys::HtmlInputElement>() { username.set(t.value()); } }) }} />
+            </div>
+            <div class="field">
+                <label>{"Email (optionnel)"}</label>
                 <input type="email" value={(*email).clone()} oninput={{ let email = email.clone(); Callback::from(move |e: InputEvent| { if let Some(t) = e.target_dyn_into::<web_sys::HtmlInputElement>() { email.set(t.value()); } }) }} />
             </div>
             <div class="field">

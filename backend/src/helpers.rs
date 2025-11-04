@@ -15,7 +15,6 @@ pub fn set_current_user(user: Option<Uuid>) {
 pub fn current_user() -> Option<Uuid> {
     TL_USER_ID.with(|c| *c.borrow())
 }
-//
 
 fn fmt_user() -> String {
     match current_user() {

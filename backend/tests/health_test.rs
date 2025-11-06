@@ -18,7 +18,9 @@ async fn get_root_retourne_bienvenue() {
 async fn path_inconnu_retourne_404() {
     let (base, handle) = common::start_server().await;
 
-    let res = reqwest::get(format!("{base}/does-not-exist")).await.unwrap();
+    let res = reqwest::get(format!("{base}/does-not-exist"))
+        .await
+        .unwrap();
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
 
     handle.abort();

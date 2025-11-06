@@ -59,6 +59,12 @@ pub fn not_found(msg: impl Into<String>) -> (StatusCode, String) {
     (StatusCode::NOT_FOUND, strip_emoji_prefix(msg))
 }
 
+pub fn bad_request(msg: impl Into<String>) -> (StatusCode, String) {
+    let msg = msg.into();
+    log_warn(&msg);
+    (StatusCode::BAD_REQUEST, strip_emoji_prefix(msg))
+}
+
 pub fn unauthorized(msg: impl Into<String>) -> (StatusCode, String) {
     let msg = msg.into();
     log_warn(&msg);

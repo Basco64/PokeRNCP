@@ -1,3 +1,3 @@
-pub mod user;
-pub mod pokemon;
 pub mod auth;
+pub mod pokemon;
+pub mod user;

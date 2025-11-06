@@ -7,7 +7,11 @@ use axum::{
 use serde_json::json;
 use sqlx::PgPool;
 
-use crate::auth::{CurrentUser, hash_password, verify_password};
+use crate::auth::{
+    CurrentUser, generate_access_token, generate_refresh_token, generate_reset_token,
+    hash_password, verify_password, verify_refresh, verify_reset,
+};
+use crate::helpers::{bad_request, internal_server_error, not_found, ok, unauthorized};
 use crate::models::auth::{
     ChangePasswordPayload, ConfirmPasswordResetPayload, RequestPasswordResetPayload,
 };
@@ -41,25 +45,25 @@ pub async fn login_user(
     .await
     {
         Ok(r) => r,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        Err(e) => return internal_server_error(e.to_string()).into_response(),
     };
 
     let Some((user_id, password_hash)) = row else {
-        return crate::helpers::unauthorized("Identifiants invalides").into_response();
+        return unauthorized("Identifiants invalides").into_response();
     };
 
     if !verify_password(&password_hash, &payload.password) {
-        return crate::helpers::unauthorized("Identifiants invalides").into_response();
+        return unauthorized("Identifiants invalides").into_response();
     }
 
     // Génère les tokens
-    let access = match crate::auth::generate_access_token(user_id) {
+    let access = match generate_access_token(user_id) {
         Ok(t) => t,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        Err(e) => return internal_server_error(e.to_string()).into_response(),
     };
-    let refresh = match crate::auth::generate_refresh_token(user_id) {
+    let refresh = match generate_refresh_token(user_id) {
         Ok(t) => t,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        Err(e) => return internal_server_error(e.to_string()).into_response(),
     };
 
     let access_max = std::env::var("JWT_EXP_SECONDS")
@@ -96,17 +100,17 @@ pub async fn login_user(
 pub async fn refresh_token(headers: HeaderMap) -> impl IntoResponse {
     let token = get_bearer(&headers).or_else(|| get_cookie(&headers, "refresh"));
     let Some(token) = token else {
-        return crate::helpers::unauthorized("Refresh token requis").into_response();
+        return unauthorized("Refresh token requis").into_response();
     };
 
-    let claims = match crate::auth::verify_refresh(&token) {
+    let claims = match verify_refresh(&token) {
         Ok(c) => c,
-        Err(_) => return crate::helpers::unauthorized("Refresh token invalide").into_response(),
+        Err(_) => return unauthorized("Refresh token invalide").into_response(),
     };
 
-    let access = match crate::auth::generate_access_token(claims.sub) {
+    let access = match generate_access_token(claims.sub) {
         Ok(t) => t,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        Err(e) => return internal_server_error(e.to_string()).into_response(),
     };
 
     let access_max = std::env::var("JWT_EXP_SECONDS")
@@ -173,8 +177,8 @@ pub async fn me(
             })),
         )
             .into_response(),
-        Ok(None) => (StatusCode::NOT_FOUND, "Utilisateur introuvable").into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        Ok(None) => not_found("Utilisateur introuvable").into_response(),
+        Err(e) => internal_server_error(e.to_string()).into_response(),
     }
 }
 
@@ -189,20 +193,20 @@ pub async fn change_password(
         .await
     {
         Ok(r) => r,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        Err(e) => return internal_server_error(e.to_string()).into_response(),
     };
 
     let Some(current_hash) = row else {
-        return (StatusCode::NOT_FOUND, "Utilisateur introuvable").into_response();
+        return not_found("Utilisateur introuvable").into_response();
     };
 
     if !verify_password(&current_hash, &payload.current_password) {
-        return crate::helpers::unauthorized("Mot de passe actuel incorrect").into_response();
+        return unauthorized("Mot de passe actuel incorrect").into_response();
     }
 
     let new_hash = match hash_password(&payload.new_password) {
         Ok(h) => h,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        Err(e) => return internal_server_error(e.to_string()).into_response(),
     };
 
     if let Err(e) = sqlx::query(r#"UPDATE users SET password = $1 WHERE id = $2"#)
@@ -211,10 +215,10 @@ pub async fn change_password(
         .execute(&pool)
         .await
     {
-        return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
+        return internal_server_error(e.to_string()).into_response();
     }
 
-    (StatusCode::OK, "Mot de passe mis à jour").into_response()
+    ok("Mot de passe mis à jour").into_response()
 }
 
 pub async fn request_password_reset(
@@ -234,7 +238,7 @@ pub async fn request_password_reset(
         .unwrap_or_default();
 
     if let Some(u) = user
-        && let Ok(token) = crate::auth::generate_reset_token(u)
+        && let Ok(token) = generate_reset_token(u)
     {
         // En prod: envoi par mail plutot.
         if !prod {
@@ -250,18 +254,18 @@ pub async fn confirm_password_reset(
     State(pool): State<PgPool>,
     Json(payload): Json<ConfirmPasswordResetPayload>,
 ) -> impl IntoResponse {
-    let claims = match crate::auth::verify_reset(&payload.token) {
+    let claims = match verify_reset(&payload.token) {
         Ok(c) => c,
-        Err(_) => return (StatusCode::BAD_REQUEST, "Token invalide ou expiré").into_response(),
+        Err(_) => return bad_request("Token invalide ou expiré").into_response(),
     };
 
     if payload.new_password.len() < 8 {
-        return (StatusCode::BAD_REQUEST, "Mot de passe trop court").into_response();
+        return bad_request("Mot de passe trop court").into_response();
     }
 
     let new_hash = match hash_password(&payload.new_password) {
         Ok(h) => h,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        Err(e) => return internal_server_error(e.to_string()).into_response(),
     };
 
     if let Err(e) = sqlx::query(r#"UPDATE users SET password = $1 WHERE id = $2"#)
@@ -270,8 +274,8 @@ pub async fn confirm_password_reset(
         .execute(&pool)
         .await
     {
-        return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
+        return internal_server_error(e.to_string()).into_response();
     }
 
-    (StatusCode::OK, "Mot de passe réinitialisé").into_response()
+    ok("Mot de passe réinitialisé").into_response()
 }

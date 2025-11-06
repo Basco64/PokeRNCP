@@ -6,9 +6,10 @@ use axum::{
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::auth::CurrentUser;
-use crate::auth::hash_password;
-use crate::helpers::{ApiResult, conflict, created, internal_server_error, not_found, ok, to_500};
+use crate::auth::{CurrentUser, hash_password};
+use crate::helpers::{
+    ApiResult, conflict, created, internal_server_error, not_found, ok, to_500, unauthorized,
+};
 use crate::models::user::{CreateUser, UpdateUser};
 
 pub async fn create_user(
@@ -53,11 +54,10 @@ pub async fn update_user(
     Json(payload): Json<UpdateUser>,
 ) -> ApiResult<(StatusCode, String)> {
     if current_user != user_id {
-        return Err(crate::helpers::unauthorized("ACCESS DENIED"));
+        return Err(unauthorized("ACCESS DENIED"));
     }
     if let Some(ref password) = payload.password {
-        let hashed = hash_password(password)
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Hash failed.".into()))?;
+        let hashed = hash_password(password).map_err(|_| internal_server_error("Hash failed."))?;
         sqlx::query("UPDATE users SET password = $1 WHERE id = $2")
             .bind(&hashed)
             .bind(user_id)
@@ -90,7 +90,7 @@ pub async fn delete_user(
     Path(user_id): Path<Uuid>,
 ) -> ApiResult<(StatusCode, String)> {
     if current_user != user_id {
-        return Err(crate::helpers::unauthorized("ACCESS DENIED"));
+        return Err(unauthorized("ACCESS DENIED"));
     }
     let res = sqlx::query("DELETE FROM users WHERE id = $1")
         .bind(user_id)

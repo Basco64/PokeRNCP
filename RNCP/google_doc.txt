@@ -1,1 +1,23 @@
 https://docs.google.com/document/d/1wJd_Mw68kIRf1GMO0s_TAWDpYaQdZKhzYZZLXsGijXk/edit?tab=t.0
+
+
+
+
+
+
+
+expliquez que je me suis occuper de toute la gestion sur une slide
+
+j'ai utiliser git pour versionner le code et vscode pour coder
+
+reprendre le google doc pas a pas
+
+mieux expliquer chaque etape erite dans le gdoc
+
+quest ce que fait l'app (features)
+
+
+
+
+
+intro - presentation service - user stories - contraintes - humain - mcd - mpd - script creation db - extrait de code - rajouter login - expliquer argon2 - plus validation des requete - mettre un test - mettre la doc d'un ou 2 crates - demo - voila ce que ce projet m'a appris

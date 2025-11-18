@@ -1,6 +1,6 @@
 ### Slide 1 — Titre et intention
 
-Bonjour, je m’appelle Xabi Martinez. Cette présentation « Présentation CCP » s’appuie sur mon projet PokeRNCP, un backend de Pokédex développé en Rust. Mon objectif est de démontrer, de façon claire et concrète, la maîtrise des compétences attendues au RNCP pour la partie back‑end : modélisation relationnelle, exposition d’une API REST sécurisée, tests, qualité et déploiement conteneurisé. Je vais expliquer les choix, montrer comment ils se traduisent dans le code et la base, et mettre en perspective les limites et les améliorations possibles. L’idée n’est pas de tout montrer, mais de présenter une architecture qu’on peut expliquer, maintenir, et faire évoluer. À la fin, vous aurez une vision précise de ce que fait PokeRNCP et pourquoi il a été conçu ainsi.
+Bonjour, je m’appelle Xabi Martinez. Cette présentation CCP s’appuie sur mon projet PokeRNCP, un backend de Pokédex développé en Rust. Mon objectif est de démontrer, de façon claire et concrète, la maîtrise des compétences attendues au RNCP pour la partie back‑end : modélisation relationnelle, exposition d’une API REST sécurisée, tests, qualité et déploiement conteneurisé. Je vais expliquer les choix, montrer comment ils se traduisent dans le code et la base, et mettre en perspective les limites et les améliorations possibles. L’idée n’est pas de tout montrer, mais de présenter une architecture qu’on peut expliquer, maintenir, et faire évoluer. À la fin, vous aurez une vision précise de ce que fait PokeRNCP et pourquoi il a été conçu ainsi.
 
 ---
 

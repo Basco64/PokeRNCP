@@ -1,6 +1,3 @@
 https://designing-eminem-suppose-aaa.trycloudflare.com/
 
-
-winget install --id Cloudflare.cloudflared -e --source winget
-cloudflared --version
 cloudflared tunnel --url http://localhost:8080

@@ -1,3 +1,3 @@
-https://designing-eminem-suppose-aaa.trycloudflare.com/
+https://optimization-adjustments-counted-curve.trycloudflare.com
 
 cloudflared tunnel --url http://localhost:8080
